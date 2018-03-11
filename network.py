@@ -8,6 +8,8 @@ class SpikingNetwork:
     TAU_MP = 20  # / ms
     T_REF = 1 # / ms
     ALPHA = 5
+    ETA_W = 0.002
+    ETA_TH = ETA_W * 0.1
 
     def __init__(self):
         self.weights = []
@@ -28,11 +30,11 @@ class SpikingNetwork:
         self.weights.append(np.random.uniform(-root_3_per_m, root_3_per_m, (n, prev_n)))
         self.thresholds.append(np.ones((n, 1)) * SpikingNetwork.ALPHA * root_3_per_m)
 
-    def forward(self, x, y):
-        spikes = [[] for v_mp in self.v_mps]
+    def forward(self, x):
+        self.spikes = [[] for i in range(len(self.v_mps) + 1)]
         for t, xt in enumerate(x):
-            input_spike = xt
-            for i, (v_mp, spike, weight, threshold) in enumerate(zip(self.v_mps, spikes, self.weights, self.thresholds)):
+            input_spike = xt[:, np.newaxis]
+            for i, (v_mp, spike, weight, threshold) in enumerate(zip(self.v_mps, self.spikes, self.weights, self.thresholds)):
                 if not np.any(input_spike):
                     break
                 spike.append((t, input_spike))
@@ -63,6 +65,37 @@ class SpikingNetwork:
 
             if not np.any(input_spike):
                 break
-            spikes[len(spikes) - 1].append((t, input_spike))
+            self.spikes[len(self.spikes) - 1].append((t, input_spike))
+        self.t = x.shape[0]
 
-    def backward(self):
+    def backward(self, y):
+        for t in range(self.t):
+            x_ks = [sum([(t_p - t) / SpikingNetwork.TAU_MP for t_p, _ in spike if t_p <= t]) * np.ones((num_neuron, 1))
+                    for spike, num_neuron in zip(self.spikes, self.num_neurons)]
+            a_is = [sum([(t_p - t) / SpikingNetwork.TAU_MP for t_p, _ in spike if t_p <= t]) * np.ones((num_neuron, 1))
+                    for spike, num_neuron in zip(self.spikes[1:], self.num_neurons[1:])]
+
+            o_is = np.array([spike[1] for spike in self.spikes[len(self.spikes) - 1]]).sum(axis=0)
+            o_is /= o_is.max()
+            delta = o_is - y[:, np.newaxis]
+
+            m_ls = [spike[t][1].sum() for spike in self.spikes[:-1]]
+
+            for i, weight, threshold, x_k, a_i, m_l in zip(
+                    reversed(range(len(m_ls))),
+                    reversed(self.weights),
+                    reversed(self.thresholds),
+                    reversed(x_ks), reversed(a_is),
+                    reversed(m_ls)):
+                N_l = weight.shape[0]
+                M_l = weight.shape[1]
+
+                delta_weight = -SpikingNetwork.ETA_W * np.sqrt(N_l / m_l) * delta @ x_k.T
+                delta_threshold = -SpikingNetwork.ETA_TH * np.sqrt(N_l / (m_l * M_l)) * delta * a_i
+
+                if i - 1 >= 0:
+                    delta = (1 / self.thresholds[i - 1]) / np.sqrt((1 / m_ls[i - 1]) * np.sum((1 / self.thresholds[i - 1]) ** 2)) * np.sqrt(
+                        M_l / m_l) * delta @ weight
+
+                weight += delta_weight
+                threshold += delta_threshold
