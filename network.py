@@ -4,78 +4,65 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-class STDPNetwork:
-    VOLTAGE_THRESHOLD = 1.5
-    MEMBRANE_VOLTAGE = 1
-    UPDATE_COEFFICIENT = 0.01
+class SpikingNetwork:
+    TAU_MP = 20  # / ms
+    T_REF = 1 # / ms
+    ALPHA = 5
 
     def __init__(self):
         self.weights = []
-        self.biases = []
-        self.voltages = []
+        self.thresholds = []
+        self.num_neurons = []
+        self.v_mps = []
 
     def add(self, n):
-        self.voltages.append(np.random.sample((n, 1)))
-        if len(self.voltages) == 1:
+        self.num_neurons.append(n)
+        if len(self.num_neurons) == 1:
             return
 
-        prev_n = self.voltages[len(self.voltages) - 2].shape[0]
+        self.v_mps.append(np.zeros((n, 1)))
 
-        self.weights.append(np.random.sample((n, prev_n)) * 2 - 1)  # (-1, 1)
-        self.biases.append(np.zeros((n, 1)))
+        prev_n = self.num_neurons[len(self.num_neurons) - 2]
+        root_3_per_m = np.sqrt(3 / prev_n)
 
-    def execute(self, x):
-        fire_times = [np.zeros(voltage.shape) for voltage in self.voltages]
+        self.weights.append(np.random.uniform(-root_3_per_m, root_3_per_m, (n, prev_n)))
+        self.thresholds.append(np.ones((n, 1)) * SpikingNetwork.ALPHA * root_3_per_m)
+
+    def forward(self, x, y):
+        spikes = [[] for v_mp in self.v_mps]
         for t, xt in enumerate(x):
-            #            print('self.voltages: {}'.format(self.voltages))
-            input_voltage = xt[:, np.newaxis]
-#            print('input_voltage: {}'.format(input_voltage))
-            prev_fire_time = None
-            for voltage, weight, bias, fire_time in zip(self.voltages, self.weights, self.biases, fire_times):
-                #                print('prev v: {}'.format(voltage))
-                voltage += -(voltage - STDPNetwork.MEMBRANE_VOLTAGE) + input_voltage
-                voltage[voltage < 0] = 0
-#                print('post v: {}'.format(voltage))
+            input_spike = xt
+            for i, (v_mp, spike, weight, threshold) in enumerate(zip(self.v_mps, spikes, self.weights, self.thresholds)):
+                if not np.any(input_spike):
+                    break
+                spike.append((t, input_spike))
 
-                input_voltage = voltage.copy()
-                input_voltage[input_voltage < STDPNetwork.VOLTAGE_THRESHOLD] = 0
+                t_p = t
+                if len(spike) == 1:
+                    t_p_1 = 0
+                else:
+                    t_p_1 = spike[len(spike) - 2][0]
 
-                fire_time[input_voltage > 0] = t
-                voltage[input_voltage > 0] = 0
+                selected_input_indices = [i for i, value in enumerate(spike[len(spike) - 2][1]) if value]
+                selected_weight = weight[selected_input_indices]
+                mean_weight = selected_weight.mean(axis=0)[np.newaxis, :].T
 
-                input_voltage[input_voltage > 0] = STDPNetwork.VOLTAGE_THRESHOLD
-#                print('weight.shape: {}'.format(weight.shape))
-#                print('input_voltage.shape: {}'.format(input_voltage.shape))
-                input_voltage = weight.dot(input_voltage) + bias
+                t_out = np.zeros(v_mp.shape, dtype=int)
+                for candidate_t_out, value in spike[i + 1]:
+                    t_out[np.where(value & (t_out != 0))] = candidate_t_out
+                    if np.all(t_out > 0):
+                        break
+                w_dyn = ((t_out - t_p) / SpikingNetwork.T_REF) ** 2
+                w_dyn[w_dyn > 1] = 1
 
-#                print('prev weight: {}'.format(weight))
-                if prev_fire_time is not None:
-                    prev_fire_worked = np.zeros(prev_fire_time.shape, bool)
-                    fire_worked = np.zeros(fire_time.shape, bool)
-                    for ft, weight_row, fw in zip(fire_time, weight, fire_worked):
-                        if ft[0] == 0:
-                            continue
-                        for pft, i, pfw in zip(prev_fire_time, range(len(weight_row)), prev_fire_worked):
-                            if pft[0] == 0:
-                                continue
-                            delta_t = pft - ft
-                            if delta_t < 0:
-                                update = STDPNetwork.UPDATE_COEFFICIENT * np.exp(delta_t)
-                            else:
-                                update = -STDPNetwork.UPDATE_COEFFICIENT * np.exp(-delta_t)
-#                            print('prev weight_elem: {}'.format(weight_row[i]))
-                            weight_row[i] += update
-#                            print('post weight_elem: {}'.format(weight_row[i]))
-                            fw[0] = True
-                            pfw[0] = True
-#                    print('prev_fire_worked: {}'.format(prev_fire_worked))
-                    prev_fire_time[prev_fire_worked] = 0
-                prev_fire_time = fire_time
-#                print('post weight: {}'.format(weight))
+                v_mp = v_mp * np.exp((t_p_1 - t_p) / SpikingNetwork.TAU_MP) + mean_weight * w_dyn
 
-            voltage = self.voltages[len(self.voltages) - 1]
-            voltage += -(voltage - STDPNetwork.MEMBRANE_VOLTAGE) + input_voltage
-            voltage[voltage > STDPNetwork.VOLTAGE_THRESHOLD] = 0
-            voltage[voltage < 0] = 0
+                input_spike = np.zeros(v_mp.shape, dtype=bool)
+                input_spike[v_mp > threshold] = True
+                v_mp[v_mp > threshold] -= threshold
 
-            fire_time[fire_worked] = 0
+            if not np.any(input_spike):
+                break
+            spikes[len(spikes) - 1].append((t, input_spike))
+
+    def backward(self):
