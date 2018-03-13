@@ -26,8 +26,8 @@ class SpikingNetwork:
         prev_n = self.num_neurons[len(self.num_neurons) - 2]
         root_3_per_m = np.sqrt(3 / prev_n)
 
-        #self.weights.append(np.random.uniform(-root_3_per_m, root_3_per_m, (n, prev_n)))
-        self.weights.append(np.random.uniform(0, root_3_per_m, (n, prev_n)))
+        self.weights.append(np.random.uniform(-root_3_per_m, root_3_per_m, (n, prev_n)))
+        #self.weights.append(np.random.uniform(0, root_3_per_m, (n, prev_n)))
         self.thresholds.append(np.ones((n, 1)) * SpikingNetwork.ALPHA * root_3_per_m)
 
     def forward(self, x):
@@ -109,10 +109,12 @@ class SpikingNetwork:
             delta = o_is - y
             #delta = y - o_is
             #delta = y - self.infer()
+            '''
             if not np.all(delta == delta):
                 print('reset weights...')
                 self._reset_weights()
                 return
+            '''
             #print('first delta: {}'.format(delta))
 
             def get_m_ls(spike):
