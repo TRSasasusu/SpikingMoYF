@@ -28,12 +28,14 @@ def main():
         tris.append(np.array([0, 0, 0, 1, 0], dtype=bool)[:, np.newaxis])
         tris.append(np.array([0, 0, 0, 0, 1], dtype=bool)[:, np.newaxis])
 
-    for i in range(100):
+    for i in range(1000):
         if i % 10 == 0:
             network.forward(rects)
             print('In {}, rect: {}'.format(i, network.infer()))
             network.forward(tris)
             print('In {}, tri: {}'.format(i, network.infer()))
+            if isinstance(network.infer(), float):
+                print('weights: {}'.format(network.weights))
         network.forward(rects)
         network.backward(np.array([[1], [0]]))
         network.forward(tris)
@@ -69,4 +71,4 @@ def submain():
 
 
 if __name__ == '__main__':
-    submain()
+    main()
