@@ -9,55 +9,61 @@ class SpikingNetwork:
     ALPHA = 2
     ETA_W = 0.002
     ETA_TH = ETA_W * 0.1
+    SIGMA = 0.5
 
     def __init__(self):
         self.weights = []
         self.thresholds = []
         self.num_neurons = []
         self.v_mps = []
+        self.kappas = []
 
-    def add(self, n):
+    def add(self, n, kappa=None):
         self.num_neurons.append(n)
         if len(self.num_neurons) == 1:
+            if kappa is not None:
+                print('This kappa is ignored.')
             return
 
         self.v_mps.append(np.zeros((n, 1)))
+
+        if kappa is None:
+            kappa = 0
+        self.kappas.append(kappa)
 
         prev_n = self.num_neurons[len(self.num_neurons) - 2]
         root_3_per_m = np.sqrt(3 / prev_n)
 
         self.weights.append(np.random.uniform(-root_3_per_m, root_3_per_m, (n, prev_n)))
-        #self.weights.append(np.random.uniform(0, root_3_per_m, (n, prev_n)))
         self.thresholds.append(np.ones((n, 1)) * SpikingNetwork.ALPHA * root_3_per_m)
 
     def forward(self, x):
         self.spikes = [[] for i in range(len(self.v_mps) + 1)]
+        self.x_ks = [np.zeros((num_neuron, 1)) for num_neuron in self.num_neurons[:-1]]
+        self.a_is = [np.zeros((num_neuron, 1)) for num_neuron in self.num_neurons[1:]]
+
         for t, xt in enumerate(x):
             input_spike = xt
-            for i, (v_mp, spike, weight, threshold) in enumerate(zip(self.v_mps, self.spikes, self.weights, self.thresholds)):
+            for i, (v_mp, spike, weight, threshold, x_k, a_i, kappa) in enumerate(zip(
+                    self.v_mps,
+                    self.spikes,
+                    self.weights,
+                    self.thresholds,
+                    self.x_ks,
+                    self.a_is,
+                    self.kappas
+            )):
                 if not np.any(input_spike):
                     break
                 spike.append((t, input_spike))
 
-                t_p = t
-                if len(spike) == 1:
-                    t_p_1 = 0
-                else:
-                    t_p_1 = spike[len(spike) - 2][0]
+                x_k = SpikingNetwork._calc_x_k(spike, t)
+                if i > 0:
+                    self.a_is[i - 1] = x_k
 
-                selected_input_indices = [i for i, value in enumerate(spike[len(spike) - 2][1]) if value]
-                selected_weight = weight[:, selected_input_indices]
-                sum_weight = selected_weight.sum(axis=1)[:, np.newaxis]
-
-                t_out = np.zeros(v_mp.shape, dtype=int)
-                for candidate_t_out, value in self.spikes[i + 1]:
-                    t_out[np.where(value & (t_out != 0))] = candidate_t_out
-                    if np.all(t_out > 0):
-                        break
-                w_dyn = ((t_out - t_p) / SpikingNetwork.T_REF) ** 2
-                w_dyn[w_dyn > 1] = 1
-
-                v_mp = v_mp * np.exp((t_p_1 - t_p) / SpikingNetwork.TAU_MP) + sum_weight * w_dyn
+                tmp_x_k = x_k.copy()
+                tmp_x_k[~input_spike] = 0
+                v_mp = weight @ tmp_x_k - threshold * a_i + SpikingNetwork.SIGMA * threshold * kappa * a_i
 
                 input_spike = np.zeros(v_mp.shape, dtype=bool)
                 input_spike[v_mp > threshold] = True
@@ -65,10 +71,13 @@ class SpikingNetwork:
 
                 self.v_mps[i] = v_mp
                 self.spikes[i] = spike
+                self.x_ks[i] = x_k
 
+            if len(self.spikes[-1]) != 0:
+                self.a_is[-1] = SpikingNetwork._calc_x_k(self.spikes[-1], t)
             if not np.any(input_spike):
                 continue
-            self.spikes[len(self.spikes) - 1].append((t, input_spike))
+            self.spikes[-1].append((t, input_spike))
         self.t = t
 
         for i, _ in enumerate(self.v_mps):
@@ -88,6 +97,7 @@ class SpikingNetwork:
                     return
             '''
 
+            '''
             x_ks = [np.array([[np.exp((t_p - t) / SpikingNetwork.TAU_MP) if fire else 0 for fire in value] for t_p, value in spike]).sum(axis=0)[:, np.newaxis]
                     if len(spike) != 0 else np.ones((num_neuron, 1)) * 10 * (1 if i < len(self.weights) - 1 else 1) for i, (spike, num_neuron) in enumerate(zip(self.spikes[:-1], self.num_neurons[:-1]))]
             #x_ks = [sum([np.exp((t_p - t) / SpikingNetwork.TAU_MP) for t_p, _ in spike if t_p <= t]) * np.ones((num_neuron, 1))
@@ -96,6 +106,7 @@ class SpikingNetwork:
                     if len(spike) != 0 else np.ones((num_neuron, 1)) * 10 * (1 if i < len(self.weights) - 1 else 1) for i, (spike, num_neuron) in enumerate(zip(self.spikes[1:], self.num_neurons[1:]))]
             #a_is = [sum([np.exp((t_p - t) / SpikingNetwork.TAU_MP) for t_p, _ in spike if t_p <= t]) * np.ones((num_neuron, 1))
             #        for spike, num_neuron in zip(self.spikes[1:], self.num_neurons[1:])]
+            '''
 
             sharp_spikes = self._calculate_sharp_spikes()
             if sharp_spikes.max() < 0.0000001:
@@ -126,12 +137,14 @@ class SpikingNetwork:
                     reversed(range(len(m_ls))),
                     reversed(self.weights),
                     reversed(self.thresholds),
-                    reversed(x_ks), reversed(a_is),
+                    reversed(self.x_ks), reversed(self.a_is),
                     reversed(m_ls)):
                 N_l = weight.shape[0]
                 M_l = weight.shape[1]
 
                 if no_spike_in_output:
+                    if x_k.sum() < 0.000001:
+                        x_k = np.ones(x_k.shape) * 10
                     if np.sum(delta @ x_k.T) > 0:
                         delta *= -1
                 delta_weight = -SpikingNetwork.ETA_W * np.sqrt(N_l / m_l) * delta @ x_k.T
@@ -161,9 +174,14 @@ class SpikingNetwork:
         max_sharp_spike = np.max(sharp_spikes)
         return np.exp(sharp_spikes - max_sharp_spike) / np.sum(np.exp(sharp_spikes - max_sharp_spike))
 
+    @classmethod
+    def _calc_x_k(cls, spike, t):
+        return np.array([np.exp([(t_p - t) / cls.TAU_MP if fire else 0 for fire in value])
+                        for t_p, value in spike]).sum(axis=0)[:, np.newaxis]
     def _calculate_sharp_spikes(self):
         return np.array([spike[1] for spike in self.spikes[len(self.spikes) - 1]]).sum(axis=0)
 
+    '''
     def _reset_weights(self):
         for i, num_neuron in enumerate(self.num_neurons):
             if i == len(self.weights):
@@ -173,3 +191,4 @@ class SpikingNetwork:
             #self.weights[i] = np.random.uniform(-root_3_per_m, root_3_per_m, self.weights[i].shape)
             self.weights[i] = np.random.uniform(0, root_3_per_m, self.weights[i].shape)
 
+    '''
