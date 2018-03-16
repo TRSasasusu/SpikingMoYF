@@ -17,9 +17,9 @@ def main():
     network.add(8)
     #network.add(24)
     #network.add(12)
-    network.add(6)
-    network.add(4)
-    network.add(MAX_DIGIT)
+    network.add(6, -0.5)
+    network.add(4, -0.9)
+    network.add(MAX_DIGIT, -0.3)
 
     train_data = []
     test_data = []
@@ -45,7 +45,7 @@ def main():
     #test_data = [train_data[0], train_data[1]]
     #import bpdb; bpdb.set_trace()
 
-    for i in range(100000):
+    for i in range(10000):
         if i % 100 == 0:
             print('In {}'.format(i))
             for data in test_data:
@@ -55,6 +55,23 @@ def main():
         for data in train_data:
             network.forward(data['x'])
             network.backward(data['y'])
+
+        end = True
+        for data in test_data:
+            network.forward(data['x'])
+            infer = network.infer()
+            if isinstance(infer, float):
+                end = False
+                break
+            if infer[np.where(data['y'])[0]] < 0.8:
+                end = False
+                break
+        if end:
+            print('great!')
+            for data in train_data:
+                network.forward(data['x'])
+                print('{}: {}'.format(np.where(data['y'])[0], network.infer()))
+            return
 
 
 if __name__ == '__main__':
