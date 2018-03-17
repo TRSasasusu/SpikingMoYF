@@ -5,16 +5,26 @@ import os
 sys.path.append(os.getcwd())
 import random
 import numpy as np
-from PIL import Image
+from sklearn import datasets
 from network import SpikingNetwork
 
 
 MAX_DIGIT = 3
 
 
+def convert_image(image):
+    return np.array([[x > 0 for j, x in enumerate(y) if j % 2 == 0] for i, y in enumerate(image) if i % 2 == 0])
+
+
+def make_number(number):
+    zeros = np.zeros((MAX_DIGIT, 1))
+    zeros[number] = 1
+    return zeros
+
+
 def main():
     network = SpikingNetwork()
-    network.add(16)
+    network.add(14)
     #network.add(24)
     #network.add(12)
     network.add(12, -0.5)
@@ -24,29 +34,23 @@ def main():
     train_data = []
     test_data = []
 
-    imgs_path = 'imgs/digits/'
-    for img_name in os.listdir(imgs_path):#['0_0.png', '1_0.png']:
-        img = Image.open(os.path.join(imgs_path, img_name), 'r')
-        number_str = img_name[0]
-        if number_str == str(MAX_DIGIT):
-            break
-        number = np.zeros((MAX_DIGIT, 1))
-        number[int(number_str)] = 1
+    print('MNIST Loading...', end='')
+    mnist = datasets.fetch_mldata('MNIST original')
+    print('OK')
 
-        appended_data = {
-            'x': [np.array([img.getpixel((x, y))[0] != 255 for x in range(64) if x % 4 == 0])[:, np.newaxis] for y in range(64) if y % 4 == 0],
-            'y': number
-        }
-        if int(number_str) == len(test_data):
-            test_data.append(appended_data)
-        else:
-            train_data.append(appended_data)
+    for number in range(MAX_DIGIT):
+        both_data = [{
+            'x': convert_image(data.reshape((28, 28))),
+            'y': make_number(number)
+        } for data in mnist['data'][mnist['target'] == number]]
+        train_data.extend(both_data[:80])
+        test_data.extend(both_data[80:90])
 
     #test_data = [train_data[0], train_data[1]]
     #import bpdb; bpdb.set_trace()
 
     for i in range(10000):
-        if i % 100 == 0:
+        if i % 10 == 0:
             print('In {}'.format(i))
             for data in test_data:
                 network.forward(data['x'])
