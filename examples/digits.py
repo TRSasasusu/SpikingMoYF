@@ -9,16 +9,16 @@ from PIL import Image
 from network import SpikingNetwork
 
 
-MAX_DIGIT = 2
+MAX_DIGIT = 3
 
 
 def main():
     network = SpikingNetwork()
-    network.add(8)
+    network.add(16)
     #network.add(24)
     #network.add(12)
-    network.add(6, -0.5)
-    network.add(4, -0.9)
+    network.add(12, -0.5)
+    network.add(6, -0.9)
     network.add(MAX_DIGIT, -0.3)
 
     train_data = []
@@ -34,7 +34,7 @@ def main():
         number[int(number_str)] = 1
 
         appended_data = {
-            'x': [np.array([img.getpixel((x, y))[0] != 255 for x in range(64) if x % 8 == 0])[:, np.newaxis] for y in range(64) if y % 8 == 0],
+            'x': [np.array([img.getpixel((x, y))[0] != 255 for x in range(64) if x % 4 == 0])[:, np.newaxis] for y in range(64) if y % 4 == 0],
             'y': number
         }
         if int(number_str) == len(test_data):

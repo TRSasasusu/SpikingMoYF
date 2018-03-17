@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import random
 import numpy as np
 from network import SpikingNetwork
 
@@ -36,10 +37,12 @@ def main():
             print('In {}, tri: {}'.format(i, network.infer()))
             if isinstance(network.infer(), float):
                 print('weights: {}'.format(network.weights))
-        network.forward(rects)
-        network.backward(np.array([[1], [0]]))
-        network.forward(tris)
-        network.backward(np.array([[0], [1]]))
+        if random.random() < 0.5:
+            network.forward(rects)
+            network.backward(np.array([[1], [0]]))
+        if random.random() < 0.5:
+            network.forward(tris)
+            network.backward(np.array([[0], [1]]))
 
     network.forward(rects)
     print(network.infer())
@@ -57,8 +60,8 @@ def submain():
     print('initial weights: {}'.format(network.weights))
     ups = [np.array([[1], [0]], dtype=bool) for _ in range(20)]
     downs = [np.array([[0], [1]], dtype=bool) for _ in range(20)]
-    for i in range(100):
-        if i % 10 == 0:
+    for i in range(1000):
+        if i % 100 == 0:
             network.forward(ups)
             print('In {}, up: {}'.format(i, network.infer()))
             network.forward(downs)

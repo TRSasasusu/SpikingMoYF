@@ -10,6 +10,8 @@ class SpikingNetwork:
     ETA_W = 0.002
     ETA_TH = ETA_W * 0.1
     SIGMA = 0.5
+    #BETA = 0.0000000000001
+    #LAMBDA = 0.000000000001
 
     def __init__(self):
         self.weights = []
@@ -97,16 +99,14 @@ class SpikingNetwork:
                     return
             '''
 
-            '''
-            x_ks = [np.array([[np.exp((t_p - t) / SpikingNetwork.TAU_MP) if fire else 0 for fire in value] for t_p, value in spike]).sum(axis=0)[:, np.newaxis]
+            self.x_ks = [np.array([[np.exp((t_p - t) / SpikingNetwork.TAU_MP) if fire else 0 for fire in value] for t_p, value in spike]).sum(axis=0)[:, np.newaxis]
                     if len(spike) != 0 else np.ones((num_neuron, 1)) * 10 * (1 if i < len(self.weights) - 1 else 1) for i, (spike, num_neuron) in enumerate(zip(self.spikes[:-1], self.num_neurons[:-1]))]
             #x_ks = [sum([np.exp((t_p - t) / SpikingNetwork.TAU_MP) for t_p, _ in spike if t_p <= t]) * np.ones((num_neuron, 1))
             #        for spike, num_neuron in zip(self.spikes[:-1], self.num_neurons[:-1])]
-            a_is = [np.array([[np.exp((t_p - t) / SpikingNetwork.TAU_MP) if fire else 0 for fire in value] for t_p, value in spike]).sum(axis=0)[:, np.newaxis]
+            self.a_is = [np.array([[np.exp((t_p - t) / SpikingNetwork.TAU_MP) if fire else 0 for fire in value] for t_p, value in spike]).sum(axis=0)[:, np.newaxis]
                     if len(spike) != 0 else np.ones((num_neuron, 1)) * 10 * (1 if i < len(self.weights) - 1 else 1) for i, (spike, num_neuron) in enumerate(zip(self.spikes[1:], self.num_neurons[1:]))]
             #a_is = [sum([np.exp((t_p - t) / SpikingNetwork.TAU_MP) for t_p, _ in spike if t_p <= t]) * np.ones((num_neuron, 1))
             #        for spike, num_neuron in zip(self.spikes[1:], self.num_neurons[1:])]
-            '''
 
             sharp_spikes = self._calculate_sharp_spikes()
             if sharp_spikes.max() < 0.0000001:
@@ -157,6 +157,16 @@ class SpikingNetwork:
                         M_l / m_l) * weight.T @ delta
 
                 weight += delta_weight - 0.0001 * weight
+
+                '''
+                weight_regularization = np.exp(SpikingNetwork.BETA * (np.sum(weight ** 2, axis=1) - 1))[:, np.newaxis]
+                weight_regularization = SpikingNetwork.BETA * SpikingNetwork.LAMBDA * weight * np.concatenate([
+                #weight_regularization = 0.5 * SpikingNetwork.LAMBDA * np.concatenate([
+                    weight_regularization for _ in range(weight.shape[1])], axis=1)
+                #print('weight_regularization: {}'.format(weight_regularization))
+                weight -= weight_regularization
+                '''
+                #weight += delta_weight - weight_regularization
                 threshold += delta_threshold
 
                 '''
