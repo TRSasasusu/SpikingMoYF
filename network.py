@@ -39,13 +39,14 @@ class SpikingNetwork:
         self.weights.append(np.random.uniform(-root_3_per_m, root_3_per_m, (n, prev_n)))
         self.thresholds.append(np.ones((n, 1)) * SpikingNetwork.ALPHA * root_3_per_m)
 
-    def forward(self, x):
+    # time / ms
+    def forward(self, x, time):
         self.spikes = [[] for i in range(len(self.v_mps) + 1)]
         self.x_ks = [np.zeros((num_neuron, 1)) for num_neuron in self.num_neurons[:-1]]
         self.a_is = [np.zeros((num_neuron, 1)) for num_neuron in self.num_neurons[1:]]
 
-        for t, xt in enumerate(x):
-            input_spike = xt
+        for t in range(time):
+            input_spike = x
             for i, (v_mp, spike, weight, threshold, x_k, a_i, kappa) in enumerate(zip(
                     self.v_mps,
                     self.spikes,
@@ -65,7 +66,9 @@ class SpikingNetwork:
 
                 tmp_x_k = x_k.copy()
                 tmp_x_k[~input_spike] = 0
-                v_mp = weight @ tmp_x_k - threshold * a_i + SpikingNetwork.SIGMA * threshold * kappa * a_i
+                lateral_inhibition = SpikingNetwork.SIGMA * threshold * kappa * a_i
+                lateral_inhibition = lateral_inhibition.sum() * np.ones(a_i.shape) - lateral_inhibition
+                v_mp = weight @ tmp_x_k - threshold * a_i + lateral_inhibition
 
                 input_spike = np.zeros(v_mp.shape, dtype=bool)
                 input_spike[v_mp > threshold] = True

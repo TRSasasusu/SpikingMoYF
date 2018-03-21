@@ -13,7 +13,7 @@ MAX_DIGIT = 3
 
 
 def convert_image(image):
-    return np.array([[x > 0 for j, x in enumerate(y) if j % 2 == 0] for i, y in enumerate(image) if i % 2 == 0])
+    return np.array([[x > 0 for j, x in enumerate(y) if j % 2 == 0] for i, y in enumerate(image) if i % 2 == 0]).reshape((196, 1))
 
 
 def make_number(number):
@@ -24,10 +24,10 @@ def make_number(number):
 
 def main():
     network = SpikingNetwork()
-    network.add(14)
+    network.add(196)
     #network.add(24)
     #network.add(12)
-    network.add(12, -0.5)
+    network.add(50, -0.5)
     network.add(6, -0.9)
     network.add(MAX_DIGIT, -0.3)
 
@@ -43,8 +43,8 @@ def main():
             'x': convert_image(data.reshape((28, 28))),
             'y': make_number(number)
         } for data in mnist['data'][mnist['target'] == number]]
-        train_data.extend(both_data[:80])
-        test_data.extend(both_data[80:90])
+        train_data.extend(both_data[:30])
+        test_data.extend(both_data[30:35])
 
     #test_data = [train_data[0], train_data[1]]
     #import bpdb; bpdb.set_trace()
@@ -53,16 +53,16 @@ def main():
         if i % 10 == 0:
             print('In {}'.format(i))
             for data in test_data:
-                network.forward(data['x'])
+                network.forward(data['x'], 50)
                 print('{}: {}'.format(np.where(data['y'])[0], network.infer()))
         random.shuffle(train_data)
         for data in train_data:
-            network.forward(data['x'])
+            network.forward(data['x'], 50)
             network.backward(data['y'])
 
         end = True
         for data in test_data:
-            network.forward(data['x'])
+            network.forward(data['x'], 50)
             infer = network.infer()
             if isinstance(infer, float):
                 end = False
@@ -73,7 +73,7 @@ def main():
         if end:
             print('great!')
             for data in train_data:
-                network.forward(data['x'])
+                network.forward(data['x'], 50)
                 print('{}: {}'.format(np.where(data['y'])[0], network.infer()))
             return
 
