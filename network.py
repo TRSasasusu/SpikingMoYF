@@ -10,8 +10,8 @@ class SpikingNetwork:
     ETA_W = 0.002
     ETA_TH = ETA_W * 0.1
     SIGMA = 0.5
-    #BETA = 0.0000000000001
-    #LAMBDA = 0.000000000001
+    #BETA = 0.0001
+    #LAMBDA = 0.00000001
 
     def __init__(self):
         self.weights = []
@@ -112,7 +112,9 @@ class SpikingNetwork:
             N_l = weight.shape[0]
             M_l = weight.shape[1]
 
-            delta[:, ~has_spike_in_output] *= -1
+            for j, this_has_spike_in_output in enumerate(has_spike_in_output):
+                if not this_has_spike_in_output and np.sum(delta[:, j][:, np.newaxis] @ x_k.T[j][np.newaxis, :]) > 0:
+                    delta[:, j] *= -1
             delta_weight = -SpikingNetwork.ETA_W * np.sqrt(N_l / m_l) * delta @ x_k.T
             delta_threshold = -SpikingNetwork.ETA_TH * np.sqrt(N_l / (m_l * M_l)) * delta * a_i
 
@@ -121,16 +123,16 @@ class SpikingNetwork:
                     M_l / m_l) * (weight.T @ delta)
 
             weight += delta_weight - 0.0001 * weight
-
+            weight /= np.absolute(weight).sum(axis=1)[:, np.newaxis]
             '''
             weight_regularization = np.exp(SpikingNetwork.BETA * (np.sum(weight ** 2, axis=1) - 1))[:, np.newaxis]
             weight_regularization = SpikingNetwork.BETA * SpikingNetwork.LAMBDA * weight * np.concatenate([
             #weight_regularization = 0.5 * SpikingNetwork.LAMBDA * np.concatenate([
                 weight_regularization for _ in range(weight.shape[1])], axis=1)
             #print('weight_regularization: {}'.format(weight_regularization))
-            weight -= weight_regularization
+            #weight -= weight_regularization
+            weight += delta_weight - weight_regularization
             '''
-            #weight += delta_weight - weight_regularization
             threshold += delta_threshold.mean(axis=1)[:, np.newaxis]
 
             '''
