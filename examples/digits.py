@@ -52,14 +52,14 @@ def main():
     for i in range(10000):
         if i % 10 == 0:
             print('In {}'.format(i))
-            for data in test_data:
-                network.forward(data['x'], 50)
-                print('{}: {}'.format(np.where(data['y'])[0], network.infer()))
+            network.forward(np.concatenate([data['x'] for data in test_data], axis=1), 50)
+            print('answer: {}'.format(np.concatenate([data['y'] for data in test_data], axis=1)))
+            print('infer:  {}'.format(network.infer()))
         random.shuffle(train_data)
-        for data in train_data:
-            network.forward(data['x'], 50)
-            network.backward(data['y'])
+        network.forward(np.concatenate([data['x'] for data in train_data], axis=1), 50)
+        network.backward(np.concatenate([data['y'] for data in train_data], axis=1))
 
+        '''
         end = True
         for data in test_data:
             network.forward(data['x'], 50)
@@ -76,6 +76,7 @@ def main():
                 network.forward(data['x'], 50)
                 print('{}: {}'.format(np.where(data['y'])[0], network.infer()))
             return
+        '''
 
 
 if __name__ == '__main__':
