@@ -53,8 +53,8 @@ def main():
         if i % 10 == 0:
             print('In {}'.format(i))
             network.forward(np.concatenate([data['x'] for data in test_data], axis=1), 50)
-            print('answer: {}'.format(np.concatenate([data['y'] for data in test_data], axis=1)))
-            print('infer:  {}'.format(network.infer()))
+            print('answer:\n{}'.format(np.concatenate([data['y'] for data in test_data], axis=1)))
+            print('infer:\n{}'.format(network.infer()))
         random.shuffle(train_data)
         network.forward(np.concatenate([data['x'] for data in train_data], axis=1), 50)
         network.backward(np.concatenate([data['y'] for data in train_data], axis=1))
