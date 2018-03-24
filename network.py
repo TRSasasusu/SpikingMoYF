@@ -1,5 +1,8 @@
 # coding: utf-8
 
+import os
+import re
+import json
 import numpy as np
 
 
@@ -155,23 +158,38 @@ class SpikingNetwork:
             #weight += delta_weight - weight_regularization
             #threshold += delta_threshold
 
-            '''
-            if not np.any(weight > 0):
-                print('delta_weight: {}'.format(delta_weight))
-                root_3_per_m = np.sqrt(3 / self.num_neurons[i])
-                weight = np.random.uniform(0, root_3_per_m, weight.shape)
-                self.weights[i] = weight
-                print('layer {}, weight is reset'.format(i))
-            '''
-            #print('delta_weight: {}'.format(delta_weight))
-
-    def infer(self):
+    def infer(self, display_no_spike=False):
         sharp_spikes = self._calculate_sharp_spikes() * 100
         no_spikes = sharp_spikes.max(axis=0) < 0.000001
-        if len(no_spikes) > 0:
+        if len(no_spikes) > 0 and display_no_spike:
             print('No spike... in {}'.format(no_spikes))
         max_sharp_spike = np.max(sharp_spikes, axis=0)
         return np.exp(sharp_spikes - max_sharp_spike) / np.sum(np.exp(sharp_spikes - max_sharp_spike), axis=0)
+
+    def save(self, path=None):
+        if path is None:
+            path = os.path.join('./models', '{}.npz'.format(SpikingNetwork._get_latest_model_number() + 1))
+
+        content = {
+            'w{}'.format(i): weight
+            for i, weight in enumerate(self.weights)
+        }
+        content.update({
+            't{}'.format(i): threshold
+            for i, threshold in enumerate(self.thresholds)
+        })
+        np.savez(path, **content)
+
+    def load(self, path=None):
+        if path is None:
+            latest_model_number = SpikingNetwork._get_latest_model_number()
+            if latest_model_number == 0:
+                raise Exception('There is no numbered model!')
+            path = os.path.join('./models', '{}.npz'.format(latest_model_number))
+
+        content = np.load(path)
+        self.weights = [content['w{}'.format(i)] for i, _ in enumerate(self.weights)]
+        self.thresholds = [content['t{}'.format(i)] for i, _ in enumerate(self.thresholds)]
 
     def _calculate_sharp_spikes(self):
         return sum(self.spikes[-1])
@@ -179,3 +197,14 @@ class SpikingNetwork:
     @classmethod
     def _calc_x_k(cls, spike, t):
         return sum([np.exp((t_p - t) / cls.TAU_MP) * fire for t_p, fire in enumerate(spike)])
+
+    @staticmethod
+    def _get_latest_model_number():
+        path = './models'
+        if not os.path.exists(path):
+            os.mkdir(path)
+        models = list(filter(lambda y: y is not None, map(lambda x: re.match('[0-9]+.npz', x), os.listdir(path))))
+        if len(models) == 0:
+            return 0
+        else:
+            return max(map(lambda x: int(x.group().split('.')[0]), models))

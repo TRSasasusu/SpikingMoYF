@@ -10,7 +10,7 @@ from network import SpikingNetwork
 
 
 MAX_DIGIT = 3
-MINI_BATCH_SIZE = 50
+MINI_BATCH_SIZE = 1
 
 
 def convert_image(image):
@@ -44,43 +44,39 @@ def main():
             'x': convert_image(data.reshape((28, 28))),
             'y': make_number(number)
         } for data in mnist['data'][mnist['target'] == number]]
-        train_data.extend(both_data[:100])
-        test_data.extend(both_data[100:105])
-        #train_data.extend(both_data[:1])
-        #test_data.extend(both_data[:1])
+        #train_data.extend(both_data[:100])
+        #test_data.extend(both_data[100:105])
+        train_data.extend(both_data[:1])
+        test_data.extend(both_data[:1])
 
-    #test_data = [train_data[0], train_data[1]]
-    #import bpdb; bpdb.set_trace()
+    if '--load' in sys.argv[1:]:
+        print('Loading...', end='')
+        network.load()
+        print('OK')
 
     for i in range(10000):
-        if i % 10 == 0:
+        network.forward(np.concatenate([data['x'] for data in test_data], axis=1), 50)
+        answer = np.concatenate([data['y'] for data in test_data], axis=1)
+        infer = network.infer(display_no_spike=i % 10 == 0)
+        complete = False
+        if np.all(np.absolute(infer - answer) < 0.1):
+            complete = True
+        if i % 10 == 0 or complete:
             print('In {}'.format(i))
-            network.forward(np.concatenate([data['x'] for data in test_data], axis=1), 50)
-            print('answer:\n{}'.format(np.concatenate([data['y'] for data in test_data], axis=1)))
-            print('infer:\n{}'.format(network.infer()))
+            print('answer:\n{}'.format(answer))
+            print('infer:\n{}'.format(infer))
+        if complete:
+            print('Complete!')
+            if '--no-save' not in sys.argv[1:]:
+                print('Saving...', end='')
+                network.save()
+                print('OK')
+            return
+
         random.shuffle(train_data)
         for j in range(0, len(train_data), MINI_BATCH_SIZE):
             network.forward(np.concatenate([data['x'] for data in train_data[j:j + MINI_BATCH_SIZE]], axis=1), 50)
             network.backward(np.concatenate([data['y'] for data in train_data[j:j + MINI_BATCH_SIZE]], axis=1))
-
-        '''
-        end = True
-        for data in test_data:
-            network.forward(data['x'], 50)
-            infer = network.infer()
-            if isinstance(infer, float):
-                end = False
-                break
-            if infer[np.where(data['y'])[0]] < 0.8:
-                end = False
-                break
-        if end:
-            print('great!')
-            for data in train_data:
-                network.forward(data['x'], 50)
-                print('{}: {}'.format(np.where(data['y'])[0], network.infer()))
-            return
-        '''
 
 
 if __name__ == '__main__':
