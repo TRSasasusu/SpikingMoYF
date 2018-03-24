@@ -87,10 +87,10 @@ class SpikingNetwork:
 
     def backward(self, y):
         self.x_ks = [SpikingNetwork._calc_x_k(spike, self.t) for spike in self.spikes[:-1]]
-        self.x_ks = [x_k if x_k.sum() > 0.00001 else np.ones((num_neuron, y.shape[1]))
+        self.x_ks = [x_k if x_k.sum() > 0.00001 else np.ones((num_neuron, y.shape[1])) * 10
                      for x_k, num_neuron in zip(self.x_ks, self.num_neurons[:-1])]
         self.a_is = [SpikingNetwork._calc_x_k(spike, self.t) for spike in self.spikes[1:]]
-        self.a_is = [a_i if a_i.sum() > 0.00001 else np.ones((num_neuron, y.shape[1]))
+        self.a_is = [a_i if a_i.sum() > 0.00001 else np.ones((num_neuron, y.shape[1])) * 10
                      for a_i, num_neuron in zip(self.a_is, self.num_neurons[1:])]
 
         sharp_spikes = self._calculate_sharp_spikes()
@@ -112,10 +112,19 @@ class SpikingNetwork:
             N_l = weight.shape[0]
             M_l = weight.shape[1]
 
+            '''
             for j, this_has_spike_in_output in enumerate(has_spike_in_output):
                 if not this_has_spike_in_output and np.sum(delta[:, j][:, np.newaxis] @ x_k.T[j][np.newaxis, :]) > 0:
                     delta[:, j] *= -1
-            delta_weight = -SpikingNetwork.ETA_W * np.sqrt(N_l / m_l) * delta @ x_k.T
+            '''
+            delta_for_weight = -SpikingNetwork.ETA_W * np.sqrt(N_l / m_l) * delta
+            if np.all(has_spike_in_output):
+                delta_weight = delta_for_weight @ x_k.T
+            else:
+                delta_weight = sum(map(lambda x: np.absolute(x[0]) if not x[1] else x[0], [
+                    (delta_for_weight[:, j][:, np.newaxis] @ x_k.T[j][np.newaxis, :], this_has_spike_in_output)
+                    for j, this_has_spike_in_output in enumerate(has_spike_in_output)
+                ]))
             delta_threshold = -SpikingNetwork.ETA_TH * np.sqrt(N_l / (m_l * M_l)) * delta * a_i
 
             if i - 1 >= 0:
@@ -123,7 +132,7 @@ class SpikingNetwork:
                     M_l / m_l) * (weight.T @ delta)
 
             weight += delta_weight - 0.0001 * weight
-            weight /= np.absolute(weight).sum(axis=1)[:, np.newaxis]
+            #weight /= np.absolute(weight).sum(axis=1)[:, np.newaxis]
             '''
             weight_regularization = np.exp(SpikingNetwork.BETA * (np.sum(weight ** 2, axis=1) - 1))[:, np.newaxis]
             weight_regularization = SpikingNetwork.BETA * SpikingNetwork.LAMBDA * weight * np.concatenate([
@@ -133,7 +142,7 @@ class SpikingNetwork:
             #weight -= weight_regularization
             weight += delta_weight - weight_regularization
             '''
-            threshold += delta_threshold.mean(axis=1)[:, np.newaxis]
+            #threshold += delta_threshold.mean(axis=1)[:, np.newaxis]
 
             '''
             weight_regularization = np.exp(SpikingNetwork.BETA * (np.sum(weight ** 2, axis=1) - 1))[:, np.newaxis]
@@ -157,7 +166,10 @@ class SpikingNetwork:
             #print('delta_weight: {}'.format(delta_weight))
 
     def infer(self):
-        sharp_spikes = self._calculate_sharp_spikes()
+        sharp_spikes = self._calculate_sharp_spikes() * 100
+        no_spikes = sharp_spikes.max(axis=0) < 0.000001
+        if len(no_spikes) > 0:
+            print('No spike... in {}'.format(no_spikes))
         max_sharp_spike = np.max(sharp_spikes, axis=0)
         return np.exp(sharp_spikes - max_sharp_spike) / np.sum(np.exp(sharp_spikes - max_sharp_spike), axis=0)
 
