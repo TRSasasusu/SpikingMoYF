@@ -10,7 +10,7 @@ from network import SpikingNetwork
 
 
 MAX_DIGIT = 3
-MINI_BATCH_SIZE = 1
+MINI_BATCH_SIZE = 20
 
 
 def convert_image(image):
@@ -44,10 +44,10 @@ def main():
             'x': convert_image(data.reshape((28, 28))),
             'y': make_number(number)
         } for data in mnist['data'][mnist['target'] == number]]
-        #train_data.extend(both_data[:100])
-        #test_data.extend(both_data[100:105])
-        train_data.extend(both_data[:1])
-        test_data.extend(both_data[:1])
+        train_data.extend(both_data[:100])
+        test_data.extend(both_data[100:105])
+        #train_data.extend(both_data[:1])
+        #test_data.extend(both_data[:1])
 
     if '--load' in sys.argv[1:]:
         print('Loading...', end='')
