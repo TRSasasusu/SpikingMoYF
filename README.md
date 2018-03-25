@@ -27,6 +27,26 @@ Saving...OK
 
 This model is saved in `./models/`.
 
+If you want to use already trained this model, use below.
+
+```sh
+$ python examples/digits.py --load sample_models/0-2.npz --no-save
+MNIST Loading...OK
+Loading...OK
+No spike... in [False False False False False False False False False False False False
+ False False False]
+In 0
+answer:
+[[ 1.  1.  1.  1.  1.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.]
+ [ 0.  0.  0.  0.  0.  1.  1.  1.  1.  1.  0.  0.  0.  0.  0.]
+ [ 0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  1.  1.  1.  1.  1.]]
+infer:
+[[ 1.  1.  1.  1.  1.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.]
+ [ 0.  0.  0.  0.  0.  1.  1.  1.  1.  1.  0.  0.  0.  0.  0.]
+ [ 0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  1.  1.  1.  1.  1.]]
+Complete!
+```
+
 ## Requirements
 
 * Python 3

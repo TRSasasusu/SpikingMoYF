@@ -24,10 +24,12 @@ def make_number(number):
 
 
 def main():
+    if '--help' in sys.argv[1:]:
+        print('usage: python {} [--load (filename)] [--no-save]'.format(sys.argv[0]))
+        return
+
     network = SpikingNetwork()
     network.add(196)
-    #network.add(24)
-    #network.add(12)
     network.add(50, -0.5)
     network.add(6, -0.9)
     network.add(MAX_DIGIT, -0.3)
@@ -51,7 +53,11 @@ def main():
 
     if '--load' in sys.argv[1:]:
         print('Loading...', end='')
-        network.load()
+        load_index = sys.argv.index('--load')
+        if len(sys.argv) > load_index + 1 and os.path.exists(sys.argv[load_index + 1]):
+            network.load(path=sys.argv[load_index + 1])
+        else:
+            network.load()
         print('OK')
 
     for i in range(10000):
