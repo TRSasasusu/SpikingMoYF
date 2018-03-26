@@ -4,6 +4,7 @@ import os
 import re
 import json
 import numpy as np
+from draw_spike import DrawSpike
 
 
 class SpikingNetwork:
@@ -16,12 +17,16 @@ class SpikingNetwork:
     #BETA = 0.0001
     #LAMBDA = 0.00000001
 
-    def __init__(self):
+    def __init__(self, draw_spike=False):
         self.weights = []
         self.thresholds = []
         self.num_neurons = []
         self.v_mps = []
         self.kappas = []
+
+        self.draw_spike = None
+        if draw_spike:
+            self.draw_spike = DrawSpike(network=self)
 
     def add(self, n, kappa=None):
         self.num_neurons.append(n)
@@ -83,6 +88,10 @@ class SpikingNetwork:
 
             self.spikes[-1].append(input_spike)
             self.a_is[-1] = SpikingNetwork._calc_x_k(self.spikes[-1], t)
+
+            if self.draw_spike is not None:
+                self.draw_spike.update()
+
         self.t = t
 
         for i, _ in enumerate(self.v_mps):

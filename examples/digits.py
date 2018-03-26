@@ -10,7 +10,7 @@ from network import SpikingNetwork
 
 
 MAX_DIGIT = 3
-MINI_BATCH_SIZE = 20
+MINI_BATCH_SIZE = 50
 
 
 def convert_image(image):
@@ -25,10 +25,10 @@ def make_number(number):
 
 def main():
     if '--help' in sys.argv[1:]:
-        print('usage: python {} [--load (filename)] [--no-save]'.format(sys.argv[0]))
+        print('usage: python {} [--load (filename)] [--no-save] [--draw]'.format(sys.argv[0]))
         return
 
-    network = SpikingNetwork()
+    network = SpikingNetwork(draw_spike='--draw' in sys.argv[1:])
     network.add(196)
     network.add(50, -0.5)
     network.add(6, -0.9)
@@ -60,7 +60,7 @@ def main():
             network.load()
         print('OK')
 
-    for i in range(10000):
+    for i in range(10000000):
         network.forward(np.concatenate([data['x'] for data in test_data], axis=1), 50)
         answer = np.concatenate([data['y'] for data in test_data], axis=1)
         infer = network.infer(display_no_spike=i % 10 == 0)
