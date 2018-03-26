@@ -9,12 +9,12 @@ from sklearn import datasets
 from network import SpikingNetwork
 
 
-MAX_DIGIT = 3
-MINI_BATCH_SIZE = 50
+MAX_DIGIT = 10
+MINI_BATCH_SIZE = 5000
 
 
 def convert_image(image):
-    return np.array([[x > 0 for j, x in enumerate(y) if j % 2 == 0] for i, y in enumerate(image) if i % 2 == 0]).reshape((196, 1))
+    return np.array([[x > 0 for j, x in enumerate(y)] for i, y in enumerate(image)]).reshape((784, 1))
 
 
 def make_number(number):
@@ -29,9 +29,8 @@ def main():
         return
 
     network = SpikingNetwork(draw_spike='--draw' in sys.argv[1:])
-    network.add(196)
-    network.add(50, -0.5)
-    network.add(6, -0.9)
+    network.add(784)
+    network.add(300, -0.5)
     network.add(MAX_DIGIT, -0.3)
 
     train_data = []
@@ -46,10 +45,12 @@ def main():
             'x': convert_image(data.reshape((28, 28))),
             'y': make_number(number)
         } for data in mnist['data'][mnist['target'] == number]]
-        train_data.extend(both_data[:100])
-        test_data.extend(both_data[100:105])
+        #train_data.extend(both_data[:100])
+        #test_data.extend(both_data[100:105])
         #train_data.extend(both_data[:1])
         #test_data.extend(both_data[:1])
+        test_data.extend(both_data[:10])
+        train_data.extend(both_data[10:])
 
     if '--load' in sys.argv[1:]:
         print('Loading...', end='')
@@ -67,7 +68,7 @@ def main():
         complete = False
         if np.all(np.absolute(infer - answer) < 0.1):
             complete = True
-        if i % 10 == 0 or complete:
+        if i % 5 == 0 or complete:
             print('In {}'.format(i))
             print('answer:\n{}'.format(answer))
             print('infer:\n{}'.format(infer))

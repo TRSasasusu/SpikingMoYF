@@ -48,12 +48,14 @@ class SpikingNetwork:
         self.thresholds.append(np.ones((n, 1)) * SpikingNetwork.ALPHA * root_3_per_m)
 
     # time / ms
-    def forward(self, x, time):
+    def forward(self, x, exposed_time):
         self.spikes = [[] for _ in self.num_neurons]
         self.x_ks = [np.zeros((num_neuron, 1)) for num_neuron in self.num_neurons[:-1]]
         self.a_is = [np.zeros((num_neuron, 1)) for num_neuron in self.num_neurons[1:]]
 
-        for t in range(time):
+        import time
+        start_time = time.time()
+        for t in range(exposed_time):
             input_spike = x
             for i, (v_mp, spike, weight, threshold, x_k, a_i, kappa) in enumerate(zip(
                     self.v_mps,
@@ -97,13 +99,18 @@ class SpikingNetwork:
         for i, _ in enumerate(self.v_mps):
             self.v_mps[i] = np.zeros(self.v_mps[i].shape)
 
+        print('forward time: {}'.format(time.time() - start_time))
+
     def backward(self, y):
+        import time
+        start_time = time.time()
         self.x_ks = [SpikingNetwork._calc_x_k(spike, self.t) for spike in self.spikes[:-1]]
         self.x_ks = [x_k if x_k.sum() > 0.00001 else np.ones((num_neuron, y.shape[1])) * 10
                      for x_k, num_neuron in zip(self.x_ks, self.num_neurons[:-1])]
         self.a_is = [SpikingNetwork._calc_x_k(spike, self.t) for spike in self.spikes[1:]]
         self.a_is = [a_i if a_i.sum() > 0.00001 else np.ones((num_neuron, y.shape[1])) * 10
                      for a_i, num_neuron in zip(self.a_is, self.num_neurons[1:])]
+        print('x_ks and a_is time: {}'.format(time.time() - start_time))
 
         sharp_spikes = self._calculate_sharp_spikes()
         has_spike_in_output = sharp_spikes.max(axis=0) > 0.0000001
@@ -133,10 +140,13 @@ class SpikingNetwork:
             if np.all(has_spike_in_output):
                 delta_weight = delta_for_weight @ x_k.T
             else:
+                import time
+                s = time.time()
                 delta_weight = sum(map(lambda x: np.absolute(x[0]) if not x[1] else x[0], [
                     (delta_for_weight[:, j][:, np.newaxis] @ x_k.T[j][np.newaxis, :], this_has_spike_in_output)
                     for j, this_has_spike_in_output in enumerate(has_spike_in_output)
                 ]))
+                print('delta_weight time: {}'.format(time.time() - s))
             delta_threshold = -SpikingNetwork.ETA_TH * np.sqrt(N_l / (m_l * M_l)) * delta * a_i
 
             if i - 1 >= 0:
