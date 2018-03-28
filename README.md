@@ -47,6 +47,19 @@ infer:
 Complete!
 ```
 
+You can also visualize these spikes. Use below.
+
+```sh
+$ python examples/digits.py --load sample_models/0-2.npz --no-save --draw
+```
+
+This visualizes this network distinguishes among 0, 1 and 2.
+![0](documents/imgs/0.gif)
+
+![1](documents/imgs/1.gif)
+
+![2](documents/imgs/2.gif)
+
 ## Requirements
 
 * Python 3
