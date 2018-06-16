@@ -1,6 +1,6 @@
 # Spiking MoYF
 
-This is a Spiking Neural Network library based on a below paper.
+This is a Spiking Neural Network library based on a below paper. However, this project does **NOT** completely reflect the paper (detail: [Issue: #2](https://github.com/TRSasasusu/SpikingMoYF/issues/2)).
 
 [Training Deep Spiking Neural Networks Using Backpropagation](https://www.frontiersin.org/articles/10.3389/fnins.2016.00508/full)
 
